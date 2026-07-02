@@ -1,0 +1,56 @@
+import { Link } from 'react-router-dom'
+import type { CarResponse } from '../../types/car'
+import { formatPrice } from '../../utils/formatPrice'
+
+interface CarCardProps {
+  car: CarResponse
+  large?: boolean
+}
+
+function CarCard({ car, large = false }: CarCardProps) {
+  return (
+    <div className={`rounded-2xl border border-gray-100 bg-white shadow-sm ${large ? 'p-6' : 'p-5'}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h3 className={`font-semibold text-gray-900 ${large ? 'text-xl' : 'text-base'}`}>
+            {car.brand} {car.model}
+          </h3>
+          <p className="text-sm text-gray-500">{car.variant}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#eff6ff] px-2.5 py-1 text-xs font-medium text-[#2563eb]">
+          {car.bodyType}
+        </span>
+      </div>
+
+      <p className={`mt-3 font-bold text-gray-900 ${large ? 'text-2xl' : 'text-xl'}`}>{formatPrice(car.price)}</p>
+
+      <dl className={`mt-4 grid gap-y-2 text-sm text-gray-600 ${large ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'}`}>
+        <div>
+          <dt className="inline text-gray-400">Fuel </dt>
+          <dd className="inline">{car.fuelType}</dd>
+        </div>
+        <div>
+          <dt className="inline text-gray-400">Transmission </dt>
+          <dd className="inline">{car.transmission}</dd>
+        </div>
+        <div>
+          <dt className="inline text-gray-400">Mileage </dt>
+          <dd className="inline">{car.mileage} km/l</dd>
+        </div>
+        <div>
+          <dt className="inline text-gray-400">Safety </dt>
+          <dd className="inline">{car.safetyRating}/5</dd>
+        </div>
+      </dl>
+
+      <Link
+        to={`/car/${car.id}`}
+        className="mt-4 block rounded-full border border-[#2563eb] px-4 py-2 text-center text-sm font-medium text-[#2563eb] hover:bg-[#eff6ff]"
+      >
+        View Details
+      </Link>
+    </div>
+  )
+}
+
+export default CarCard

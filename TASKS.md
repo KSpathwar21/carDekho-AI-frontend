@@ -175,16 +175,62 @@ page's needs turn out to be more than reading straight from
 `useConversation`.
 
 ## M7 — Recommendation Cards
-- [ ] `src/components/Recommendation/RecommendationCard`,
-      `src/components/Common/CarCard`
-- [ ] `src/pages/Recommendation` — top pick as large featured card, rest in
-      grid, per `PROJECT_SCOPE.md`
-- [ ] Render `assistantMessage` as markdown (`react-markdown`) on the
-      completed turn — mid-conversation messages are plain text, only the
-      final turn is markdown
-- [ ] Empty-recommendations state (zero matches) uses `EmptyState`, not
-      `ErrorBanner` — it's `completed: true` with `recommendations: []`, a
-      normal response, not a failure
+- [x] `src/components/Common/CarCard` — the reusable structured-data card
+      (brand/model/variant, body-type badge, `Intl`-formatted INR price,
+      fuel/transmission/mileage/safety, View Details link to `/car/:id`); a
+      `large` prop scales it up and widens the specs grid to one row of 4
+      instead of 2×2, used for the featured slot
+- [x] `src/components/Recommendation/RecommendationCard` — thin wrapper
+      adding the "Top Recommendation" ribbon badge around `CarCard` when
+      `featured`; not a separate visual design, since the backend has no
+      per-car AI blurb to justify one (`ChatResponse` has exactly one
+      `assistantMessage` covering *all* recommended cars together, not a
+      summary per car — confirmed against the real DTO in M6)
+- [x] `src/components/Common/EmptyState` — generic title/description/action,
+      used for both empty states below
+- [x] `src/pages/Recommendation` — top pick as a full-width featured card,
+      rest in a responsive grid (1/2/3 cols), per `PROJECT_SCOPE.md`. Reads
+      `messages`/`completed`/`recommendations` straight from
+      `useConversation` — no separate `useRecommendations` hook needed (see
+      M6's note on skipped hooks)
+- [x] Three distinct page states, each with its own `EmptyState` or content:
+      not-completed (direct nav without chatting) → "start a conversation"
+      prompt; completed with zero matches → renders the real markdown
+      summary + "no matching cars" `EmptyState`; completed with matches →
+      markdown summary + featured card + grid
+- [x] Markdown summary rendered via `react-markdown` with custom
+      `h2`/`h3`/`p`/`ul`/`li`/`strong` component overrides (no typography
+      plugin installed, so bare `ReactMarkdown` would under-style headings —
+      same reasoning as `MessageBubble`'s override in M5)
+- [x] "Compare" button from `CLAUDE_FRONTEND.md`'s planned card buttons
+      **deliberately not added yet** — there's nowhere for it to go until
+      M8 builds the comparison view it should link to; adding a dead button
+      now would just get thrown away
+- [x] Verified with a mix of real backend calls and real (non-LLM) data:
+      - Direct nav to `/recommendation` with no conversation → confirmed the
+        not-completed `EmptyState` for real, screenshotted
+      - Card layout/pricing/badges/responsive grid verified against **real
+        `CarResponse` objects fetched live from `GET /cars`** (desktop +
+        mobile screenshots) via a temporary preview route added, screenshotted,
+        and fully deleted afterward (confirmed zero diff left behind:
+        `git status` showed only the real M7 files) — chosen specifically to
+        avoid burning more LLM quota (see note below)
+      - Attempted a full live chat→recommendation run reusing M6's proven
+        approach, but **hit a real backend problem along the way**: the
+        backend's `pom.xml` actually depends on
+        `spring-ai-starter-model-google-genai` (Gemini), not
+        `spring-ai-starter-model-anthropic` as the backend's own
+        `IMPLEMENTATION.md`/`CLAUDE_BACKEND.md` claim — the migration
+        described in those docs doesn't match what's actually deployed on
+        this machine. Gemini's free tier caps at 20 requests/day, and it was
+        exhausted by M6 + M7's testing today (confirmed via backend logs:
+        `429 ... generate_content_free_tier_requests, limit: 20`). This is a
+        backend-repo issue, not fixable from here — flagging it since it
+        explains the intermittent 503s seen since M6 and blocks further live
+        verification until the backend's provider/quota situation is
+        resolved or the quota resets.
+
+**M7 status: done.**
 
 ## M8 — Comparison Table
 - [ ] `src/components/Recommendation/ComparisonTable`
