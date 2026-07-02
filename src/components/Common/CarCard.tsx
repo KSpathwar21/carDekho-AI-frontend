@@ -5,9 +5,10 @@ import { formatPrice } from '../../utils/formatPrice'
 interface CarCardProps {
   car: CarResponse
   large?: boolean
+  showCompareLink?: boolean
 }
 
-function CarCard({ car, large = false }: CarCardProps) {
+function CarCard({ car, large = false, showCompareLink = false }: CarCardProps) {
   return (
     <div className={`rounded-2xl border border-gray-100 bg-white shadow-sm ${large ? 'p-6' : 'p-5'}`}>
       <div className="flex items-start justify-between gap-2">
@@ -43,12 +44,22 @@ function CarCard({ car, large = false }: CarCardProps) {
         </div>
       </dl>
 
-      <Link
-        to={`/car/${car.id}`}
-        className="mt-4 block rounded-full border border-[#2563eb] px-4 py-2 text-center text-sm font-medium text-[#2563eb] hover:bg-[#eff6ff]"
-      >
-        View Details
-      </Link>
+      <div className="mt-4 flex gap-2">
+        <Link
+          to={`/car/${car.id}`}
+          className="flex-1 rounded-full border border-[#2563eb] px-4 py-2 text-center text-sm font-medium text-[#2563eb] hover:bg-[#eff6ff]"
+        >
+          View Details
+        </Link>
+        {showCompareLink && (
+          <a
+            href="#comparison"
+            className="flex-1 rounded-full bg-[#2563eb] px-4 py-2 text-center text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Compare
+          </a>
+        )}
+      </div>
     </div>
   )
 }

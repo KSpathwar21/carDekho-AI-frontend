@@ -14,7 +14,7 @@ function RecommendationCard({ car, featured = false }: RecommendationCardProps) 
           Top Recommendation
         </span>
       )}
-      <CarCard car={car} large={featured} />
+      <CarCard car={car} large={featured} showCompareLink />
     </div>
   )
 }

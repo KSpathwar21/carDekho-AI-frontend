@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import { useConversation } from '../hooks/useConversation'
 import RecommendationCard from '../components/Recommendation/RecommendationCard'
+import ComparisonTable from '../components/Recommendation/ComparisonTable'
 import EmptyState from '../components/Common/EmptyState'
 
 const markdownComponents = {
@@ -21,7 +22,7 @@ const markdownComponents = {
 }
 
 function Recommendation() {
-  const { messages, completed, recommendations, reset } = useConversation()
+  const { messages, completed, recommendations, comparison, reset } = useConversation()
   const navigate = useNavigate()
 
   const summary = [...messages].reverse().find((message) => message.role === 'assistant')?.text
@@ -81,6 +82,15 @@ function Recommendation() {
           {rest.map((car) => (
             <RecommendationCard key={car.id} car={car} />
           ))}
+        </div>
+      )}
+
+      {comparison.length > 0 && (
+        <div id="comparison" className="mt-12 scroll-mt-6">
+          <h2 className="text-xl font-semibold text-gray-900">Compare Cars</h2>
+          <div className="mt-4">
+            <ComparisonTable cars={comparison} />
+          </div>
         </div>
       )}
 

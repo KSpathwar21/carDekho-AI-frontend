@@ -233,13 +233,32 @@ page's needs turn out to be more than reading straight from
 **M7 status: done.**
 
 ## M8 — Comparison Table
-- [ ] `src/components/Recommendation/ComparisonTable`
-- [ ] Source rows directly from the chat response's `comparison` array — do
-      **not** build a separate fetch/selection flow; `comparison` is
-      currently always identical to `recommendations` in the backend
-- [ ] Columns: price, mileage, safety, fuel, transmission, seats, boot
-      space, ground clearance, review score, engine, power (per
-      `CLAUDE_FRONTEND.md`)
+- [x] `src/components/Recommendation/ComparisonTable` — cars as columns,
+      the 11 documented attributes as rows, horizontally scrollable on
+      narrow viewports (`overflow-x-auto` + `min-w`) rather than squeezing
+- [x] Sourced directly from `comparison` (via `useConversation`), not
+      re-derived from `recommendations` — even though the two are currently
+      identical in the backend, reading the field the API actually
+      documents for this purpose means no code change needed if that ever
+      diverges
+- [x] Columns/rows: price, mileage, safety, fuel, transmission, seats, boot
+      space, ground clearance, review score, engine, power — all 11, per
+      `CLAUDE_FRONTEND.md`
+- [x] Wired up the "Compare" button deferred from M7: `CarCard` gained an
+      opt-in `showCompareLink` prop (default off, so the component stays
+      generic/reusable) rendering an anchor to `#comparison`;
+      `RecommendationCard` always turns it on since it's only ever used on
+      the page that has that section. `Recommendation.tsx` renders the
+      table under `id="comparison"` with `scroll-mt-6` so the sticky navbar
+      doesn't cover the anchor target on click.
+- [x] Verified with real `/cars` data via the same temporary/non-shipping
+      preview-route technique as M7 (LLM quota still exhausted, see M7's
+      note) — screenshotted the full table (all 11 rows populated
+      correctly) and confirmed clicking "Compare" on a grid card actually
+      scrolls the page down to the table. Preview route fully deleted
+      afterward, confirmed via `git status` before finishing.
+
+**M8 status: done.**
 
 ## M9 — Animations
 - [ ] Framer Motion: fade-in/slide-up on message arrival, card hover, page
