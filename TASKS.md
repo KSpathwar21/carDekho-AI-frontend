@@ -261,30 +261,124 @@ page's needs turn out to be more than reading straight from
 **M8 status: done.**
 
 ## M9 — Animations
-- [ ] Framer Motion: fade-in/slide-up on message arrival, card hover, page
-      transitions, animated typing dots (client-side only — no server
-      "typing" event exists, see `IMPLEMENTATION.md` §3)
+- [x] Message fade-in/slide-up on arrival — `MessageBubble` wrapped in
+      `motion.div` (`initial`/`animate`, no `exit` needed since messages
+      are never removed); keyed by each message's stable `id`, so only the
+      newly-appended bubble animates, not the whole list re-animating
+- [x] Card hover — `CarCard` wrapped in `motion.div` with `whileHover`
+      (lift + soft blue shadow); inherited by both `RecommendationCard`
+      variants since they both render through `CarCard`
+- [x] Page transitions — `AppLayout` wraps `<Outlet/>` in
+      `AnimatePresence`+`motion.div` keyed by `location.pathname`
+      (fade+slide). Verified this didn't break Chat's M5 fixed-viewport
+      scroll design (the wrapper needed `className="h-full"`, not
+      `min-h-full`, for Chat's own `h-full` chain to keep resolving — see
+      inline note in `AppLayout.tsx`)
+- [x] Animated typing dots — **deliberately left as-is**, not converted to
+      Framer Motion. `TypingIndicator`/`ThinkingAnimation` (built in M5)
+      already animate via Tailwind's `animate-bounce`, which is the same
+      visual outcome with no added bundle weight or complexity; rewriting
+      working code to a different animation mechanism for an identical
+      result isn't worth it
+- [x] Verified in a real browser: page-transition entering/settled frames,
+      message entering/settled frames, and card at-rest/hovered frames all
+      captured and visually confirmed (card lift + shadow clearly visible);
+      zero console errors throughout. Card hover verified against real
+      `/cars` data via the same temporary/non-shipping preview-route
+      technique as M7/M8, deleted afterward.
+
+**M9 status: done.**
 
 ## M10 — Responsive Design
-- [ ] Verify mobile (bottom input, full width, scrollable chat), tablet
-      (responsive card grid), desktop (centered chat, optional sidebar) per
-      `CLAUDE_FRONTEND.md`'s Responsive Design section
+- [x] Audited every page (Home, Chat, Recommendation incl. comparison
+      table, NotFound, CarDetails placeholder) at mobile (390×844),
+      tablet (768×1024), and desktop (1280×900) via real browser
+      screenshots.
+- [x] **Found and fixed a real bug**: on mobile, Home's hero content
+      (heading + paragraph + button + hero image at `max-w-sm`) was
+      slightly taller than the space available under the sticky navbar/
+      footer (measured 801px of content vs. 687px available), pushing the
+      "Start Conversation" CTA just past the fold. Fixed by tightening
+      mobile-only spacing (`py-20`→`py-10`, `gap-12`→`gap-6`) and capping
+      the hero image at `max-w-[200px]` on mobile (`md:max-w-sm` restores
+      the original size from tablet up) — content now fits (688px vs
+      687px available). Confirmed via direct DOM measurement
+      (`scrollHeight` vs `clientHeight`), not just eyeballing a screenshot.
+- [x] Chat: confirmed bottom-pinned input and internally-scrolling message
+      list (M5's design) still hold up at all three widths; quick-reply
+      chips wrap correctly on narrow screens instead of overflowing.
+- [x] Recommendation: confirmed the card grid degrades 3→2→1 columns
+      correctly, and the comparison table's `overflow-x-auto` genuinely
+      works — narrow viewports get an honest horizontal scroll instead of
+      squeezed/broken columns, while tablet width (768px) already fits all
+      4 compared cars without scrolling.
+- [x] Testing-methodology note for future milestones: Playwright's
+      `fullPage: true` screenshots **don't work correctly** against this
+      app's `h-screen` + `overflow-y-auto`-on-`<main>` layout (from M5/M9)
+      — they only capture `document.documentElement`'s height, not what's
+      scrolled inside `main`, which is how the Home bug above was first
+      misread as a footer-overlapping-button stacking bug before DOM
+      measurement clarified it. Correct technique used from here on:
+      measure `main.scrollHeight`, resize the viewport to fit it, then take
+      a normal (non-fullPage) screenshot.
+
+**M10 status: done.**
 
 ## M11 — Refactoring
-- [ ] Extract shared card/badge/enum-label components once real UI exists
-      (don't do this pass before M7/M8 are built — nothing to refactor yet)
-- [ ] Confirm no `/api`-prefixed or hardcoded backend URLs slipped in
-      anywhere outside `src/services/api.ts`
+- [x] `src/utils/formatEnumLabel.ts` extracted — `CarCard` and
+      `ComparisonTable` were both displaying raw backend enum values
+      (`HATCHBACK`, `PETROL`, `MANUAL`) verbatim; now both go through the
+      same title-case formatter (`"Hatchback"`, `"Petrol"`, `"Manual"`)
+- [x] Checked for a duplicate "badge" component to extract — found only one
+      usage site (`CarCard`'s body-type pill), so **not** extracted; a
+      single call site doesn't justify the abstraction
+- [x] Confirmed via `grep` for `localhost|8080|8081|VITE_API_BASE_URL` across
+      `src/`: the **only** hit is `src/services/api.ts`'s
+      `import.meta.env.VITE_API_BASE_URL` — no stray hardcoded URLs or
+      `/api` prefixes anywhere else
+- [x] Verified the enum-label fix against real `/cars` data (temporary
+      preview route, deleted after) — screenshotted "Hatchback"/"Petrol"/
+      "Manual"/"Automatic" rendering correctly instead of shouting caps
+
+**M11 status: done.**
 
 ## M12 — Production Ready
-- [ ] Confirm `VITE_API_BASE_URL` is read from env everywhere, nothing
-      hardcoded
-- [ ] `CarDetailsModal` (`/car/:id`, `getCar()`) — specs, pros, cons, AI
-      summary, close button
-- [ ] `LoadingSpinner`, `NotFound` page wired into router
-- [ ] Full manual pass: Home → Chat → (multi-turn) → Recommendation →
-      Compare → Car Details → error paths (kill backend mid-conversation to
-      confirm the "conversation not found, start over" path actually works)
+- [x] `VITE_API_BASE_URL` usage confirmed single-sourced in M11's grep check
+- [x] `CarDetails` page built for real (`getCar()`, specs grid — body type/
+      fuel/transmission/engine/power/torque/mileage/safety/seats/boot
+      space/ground clearance/review score, Pros/Cons lists, close button).
+      No image URL exists in the real `CarResponse` (verified against the
+      DTO in M6/M7), so used an icon placeholder instead of fabricating an
+      "AI Summary" field the API doesn't actually return — Pros/Cons *are*
+      the real AI/seed-authored review content, used directly rather than
+      inventing a redundant summary
+- [x] Fixed a real `react-hooks/set-state-in-effect` lint error this
+      surfaced: rather than synchronously resetting `loading`/`error` state
+      inside the fetch effect, `AppRoutes.tsx` now has a small
+      `CarDetailsRoute` wrapper that renders `<CarDetails key={id} />`, so
+      navigating between two different `/car/:id` pages remounts with fresh
+      state instead of needing an in-place reset
+- [x] `LoadingSpinner` built and wired into `AppRoutes`'s `Suspense`
+      fallback (replacing the old plain-text "Loading...") and into
+      `CarDetails`'s loading state. `NotFound` was already wired since M2.
+- [x] Full manual pass, verified for real against the live backend (quota
+      had recovered by this point): Home → clicked "Start Conversation" →
+      Chat → sent one comprehensive message (packing all 7 preferences into
+      a single turn to conserve the still-limited Gemini quota) → real LLM
+      response → auto-navigated to Recommendation on `completed: true` →
+      real markdown summary + featured/grid cards rendered → clicked
+      "Compare" → scrolled to the real comparison table → clicked "View
+      Details" → real `CarDetails` page, confirmed the **same car**
+      (Maruti Suzuki Swift ZXi+ AMT) shows identical price/specs/pros/cons
+      across the recommendation card, comparison table, and detail page →
+      "Close" navigated back correctly. Zero console errors throughout.
+- [x] Error path (kill backend mid-conversation → network error → retry →
+      real `404 Conversation not found` → retry → fresh conversation)
+      **not re-run here** — already verified live and in depth during M6;
+      re-running the identical scenario would just spend more of the
+      limited daily LLM quota for no new information.
+
+**M12 status: done.**
 
 ---
 

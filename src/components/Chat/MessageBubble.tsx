@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown'
+import { motion } from 'framer-motion'
 import { FaCarSide } from 'react-icons/fa'
 import type { ChatMessage } from '../../types/chat'
 
@@ -10,7 +11,12 @@ function MessageBubble({ message }: MessageBubbleProps) {
   const isAssistant = message.role === 'assistant'
 
   return (
-    <div className={`flex items-start gap-3 ${isAssistant ? '' : 'flex-row-reverse'}`}>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className={`flex items-start gap-3 ${isAssistant ? '' : 'flex-row-reverse'}`}
+    >
       {isAssistant && (
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2563eb] text-white">
           <FaCarSide size={14} />
@@ -29,7 +35,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
           {message.text}
         </ReactMarkdown>
       </div>
-    </div>
+    </motion.div>
   )
 }
 

@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import type { CarResponse } from '../../types/car'
 import { formatPrice } from '../../utils/formatPrice'
+import { formatEnumLabel } from '../../utils/formatEnumLabel'
 
 interface CarCardProps {
   car: CarResponse
@@ -10,7 +12,11 @@ interface CarCardProps {
 
 function CarCard({ car, large = false, showCompareLink = false }: CarCardProps) {
   return (
-    <div className={`rounded-2xl border border-gray-100 bg-white shadow-sm ${large ? 'p-6' : 'p-5'}`}>
+    <motion.div
+      whileHover={{ y: -4, boxShadow: '0 12px 24px -8px rgba(37, 99, 235, 0.25)' }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className={`rounded-2xl border border-gray-100 bg-white shadow-sm ${large ? 'p-6' : 'p-5'}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className={`font-semibold text-gray-900 ${large ? 'text-xl' : 'text-base'}`}>
@@ -19,7 +25,7 @@ function CarCard({ car, large = false, showCompareLink = false }: CarCardProps) 
           <p className="text-sm text-gray-500">{car.variant}</p>
         </div>
         <span className="shrink-0 rounded-full bg-[#eff6ff] px-2.5 py-1 text-xs font-medium text-[#2563eb]">
-          {car.bodyType}
+          {formatEnumLabel(car.bodyType)}
         </span>
       </div>
 
@@ -28,11 +34,11 @@ function CarCard({ car, large = false, showCompareLink = false }: CarCardProps) 
       <dl className={`mt-4 grid gap-y-2 text-sm text-gray-600 ${large ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'}`}>
         <div>
           <dt className="inline text-gray-400">Fuel </dt>
-          <dd className="inline">{car.fuelType}</dd>
+          <dd className="inline">{formatEnumLabel(car.fuelType)}</dd>
         </div>
         <div>
           <dt className="inline text-gray-400">Transmission </dt>
-          <dd className="inline">{car.transmission}</dd>
+          <dd className="inline">{formatEnumLabel(car.transmission)}</dd>
         </div>
         <div>
           <dt className="inline text-gray-400">Mileage </dt>
@@ -60,7 +66,7 @@ function CarCard({ car, large = false, showCompareLink = false }: CarCardProps) 
           </a>
         )}
       </div>
-    </div>
+    </motion.div>
   )
 }
 

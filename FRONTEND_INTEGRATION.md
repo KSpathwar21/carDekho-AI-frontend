@@ -84,10 +84,33 @@ There is no "typing indicator" event, no streaming, no websocket — each
 multi-second latency per call (LLM round-trip), so the UI should show a
 loading/typing state while awaiting the response.
 
-**Zero-result completion is not an error.** If no cars match, you still
-get `completed: true`, HTTP `200`, with `recommendations: []` and an
-assistantMessage explaining no matches were found — render it like any
-other assistant message, don't treat it as a failure state.
+**The initial greeting asks for everything at once.** `POST /chat/start`'s
+`assistantMessage` lists all 7 required preferences in one message, rather
+than the assistant drip-feeding one question per turn. The user can answer
+as few or as many of them as they want in their first reply — anything left
+out just triggers a follow-up `/chat/message` response listing only what's
+still missing (deterministic text, not another LLM-phrased question). This
+means a thorough first reply can jump straight from turn 1 to
+`completed: true`, or it can take several turns if the user answers
+piecemeal — your UI shouldn't assume a fixed number of turns either way,
+just keep looping on `completed: false` as already described.
+
+**No exact match doesn't mean an empty response.** If no car satisfies
+every stated preference, the backend automatically retries with a
+closest-match query (ranked by proximity to budget/body type/fuel/
+transmission) instead of giving up — you'll still get `completed: true`
+with a populated `recommendations` array, but `assistantMessage` will say
+up front that these are near-matches and explain per-car which preference
+each one misses. Render this exactly like a normal recommendation response
+— there's no separate field distinguishing "exact" vs "closest" results,
+it's communicated entirely through the markdown in `assistantMessage`.
+
+**True zero-result completion is not an error.** Only when *even the
+closest-match fallback* returns nothing (the catalog has nothing usable at
+all, not just an overly strict filter) do you get `completed: true` with
+`recommendations: []` and a deterministic "couldn't find any cars"
+message — render it like any other assistant message, don't treat it as a
+failure state.
 
 ---
 
@@ -107,14 +130,14 @@ curl -X POST http://localhost:8080/chat/start
 ```json
 {
   "conversationId": "3f7a1c2e-9b4d-4e11-8a2f-1d6c9e0b7a55",
-  "assistantMessage": "Hi! I'm your AI Car Buying Assistant. I'll ask a few questions to recommend the perfect car."
+  "assistantMessage": "Hi! I'm your AI Car Buying Assistant. To recommend the perfect car, please tell me: your budget, preferred fuel type, body type, transmission, typical driving pattern (city, highway, or off-road), family size, and what matters most to you (e.g. safety, mileage, budget, or space)."
 }
 ```
 
 | Field | Type | Notes |
 |---|---|---|
 | `conversationId` | `string` (UUID) | Opaque — treat as a string, store it, send it back on every `/chat/message` call. |
-| `assistantMessage` | `string` | Plain text greeting — always the same fixed string. |
+| `assistantMessage` | `string` | Plain text greeting — always the same fixed string. Note it now asks for **all** required fields at once, rather than one at a time — the user can answer as many as they want in their first reply. |
 
 ---
 
@@ -144,12 +167,16 @@ curl -X POST http://localhost:8080/chat/message \
 **Response** `200` — mid-conversation (fields not yet complete):
 ```json
 {
-  "assistantMessage": "Got it — a petrol SUV around ₹15 lakh. Do you prefer an automatic or manual transmission?",
+  "assistantMessage": "Thanks! I still need a few more details: transmission, driving pattern, family size, top priority. Could you share those?",
   "completed": false
 }
 ```
 Note `recommendations`/`comparison` keys are **absent** here (non-null
-serialization — see section 1).
+serialization — see section 1). Also note this follow-up message is
+**deterministic plain text listing the still-missing fields** — not an
+LLM-phrased conversational question — so don't parse or expect natural
+variation in its wording; it's built directly from which of the 7 required
+fields are still `null`.
 
 **Response** `200` — final turn (preferences complete, cars found):
 ```json
@@ -183,7 +210,21 @@ serialization — see section 1).
 }
 ```
 
-**Response** `200` — final turn, zero matches:
+**Response** `200` — final turn, no exact match (closest-match fallback):
+```json
+{
+  "assistantMessage": "## Summary\nNo car matched every criterion exactly, but here are the closest options...\n\n### 1. Hyundai Creta\n- **Doesn't match**: diesel instead of petrol\n- ...",
+  "recommendations": [ /* closest-match CarResponse[], ranked by proximity */ ],
+  "comparison": [ /* same array as recommendations */ ],
+  "completed": true
+}
+```
+Structurally identical to an exact-match response — the distinction between
+"exact" and "closest" is communicated only through the `assistantMessage`
+markdown, not a separate field. Render it the same way.
+
+**Response** `200` — final turn, truly zero matches (even the closest-match
+fallback found nothing):
 ```json
 {
   "assistantMessage": "I couldn't find any cars matching all of your criteria. Try relaxing your budget or one of your other preferences and I'll take another look.",
@@ -355,18 +396,29 @@ Every non-2xx response has this shape:
 | `400` | `Validation Failed` | `conversationId` or `message` blank/missing in the request body | Client-side bug — validate before sending; if it happens, show a generic "something went wrong, please retry" and check the payload. |
 | `404` | `Not Found` | Unknown `conversationId` (e.g. backend restarted and lost in-memory state) or unknown car `id` | For chat: prompt the user to start a new conversation (`POST /chat/start` again) — the old `conversationId` is gone. For cars: show a "car not found" state. |
 | `500` | `Invalid SQL` | Backend's own SQL generation failed after 3 retries (not the user's fault) | Show a generic retry-later message; this indicates a backend/LLM prompt issue, not something the frontend can fix by retrying the same request. |
-| `503` | `LLM Failure` | Anthropic API call failed (rate limit, billing, network, or malformed LLM output) | Transient — safe to offer a "retry" button that resends the same `/chat/message` call. |
+| `503` | `LLM Failure` | Gemini API call failed (free-tier rate limit — 20 req/min, network, or malformed LLM output) | Transient — safe to offer a "retry" button that resends the same `/chat/message` call. |
 | `503` | `Database Failure` | MySQL query execution failed | Transient — safe to offer a "retry" button. |
 | `500` | `Internal Server Error` | Anything unhandled | Generic fallback error UI; message is intentionally non-specific (`"An unexpected error occurred. Please try again later."`) — never surfaces internal details. |
 
-**Practical note on `503`s during current development**: the backend's
-Anthropic account has, as of the last backend milestone note, had
-billing/credit issues that make *every* LLM-backed call (all of
-`/chat/message`, since every branch calls the LLM at least once) return
-`503 LLM Failure`. If you're integrating against a local backend and every
-single `/chat/message` call fails the same way regardless of payload,
-that's very likely this — not a frontend bug. `/cars` and `/cars/{id}`
-don't call the LLM and are unaffected.
+**Practical note on `503`s during current development**: the backend runs
+on Google Gemini's **free tier** (`gemini-2.5-flash`), which is
+rate-limited to **20 requests/minute** on this account. If a burst of
+`/chat/message` calls (e.g. rapid manual testing, or a frontend that fires
+requests without debouncing) exceeds that, Gemini returns a `429` which
+surfaces as `503 LLM Failure`. This is transient and typically clears
+within ~30-60 seconds — a "retry" button or a short auto-retry-after-delay
+is reasonable UX for this specific case, unlike other `503`s. It is not
+something the frontend can prevent outright, but two backend-side changes
+reduce how often you'll see it in practice: the "preferences incomplete"
+path now costs exactly 1 LLM call per turn instead of 2 (the missing-fields
+follow-up is deterministic text, not a second LLM call), and the initial
+greeting now asks for all 7 required fields at once (see section 2 above)
+so a thorough first reply can finish the gathering phase in a single call
+instead of several. If every single `/chat/message` call fails the
+same way regardless of payload and pacing, that's more likely a genuine
+config issue (e.g. missing `GEMINI_API_KEY`) than the rate limit — check the
+backend logs for the underlying cause before assuming rate limiting.
+`/cars` and `/cars/{id}` don't call the LLM and are unaffected either way.
 
 ---
 

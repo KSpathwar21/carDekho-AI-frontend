@@ -3,7 +3,7 @@ import heroImage from '../assets/hero.png'
 
 function Home() {
   return (
-    <div className="mx-auto flex max-w-5xl flex-col-reverse items-center gap-12 px-6 py-20 md:flex-row md:py-28">
+    <div className="mx-auto flex max-w-5xl flex-col-reverse items-center gap-6 px-6 py-10 md:flex-row md:gap-12 md:py-28">
       <div className="flex-1 text-center md:text-left">
         <h1 className="text-4xl font-bold text-gray-900 md:text-5xl">
           Find Your Perfect Car
@@ -19,7 +19,7 @@ function Home() {
         </Link>
       </div>
       <div className="flex-1">
-        <img src={heroImage} alt="" className="mx-auto w-full max-w-sm" />
+        <img src={heroImage} alt="" className="mx-auto w-full max-w-[200px] md:max-w-sm" />
       </div>
     </div>
   )

@@ -27,10 +27,11 @@ commit (`M10`):
 - **Not yet done**: M11 (Docker/Railway deployment). Doesn't block local
   frontend integration.
 
-This repo (`carDekho-AI-frontend`) is still scaffolding only — `src/components`,
-`src/pages`, `src/services`, `src/hooks`, `src/context`, `src/types` etc. are
-empty folders, no real code beyond the Vite template. Everything below is
-what needs to get built into them.
+This repo (`carDekho-AI-frontend`) has completed all 12 milestones in
+`TASKS.md` — real UI, live-backend-verified API integration, animations,
+responsive design, and a refactoring/production-readiness pass. What's below
+documents the contract it was built against; treat it as historical/pointer
+context, not a "what's left to build" list — see `TASKS.md` for that.
 
 ---
 
@@ -39,14 +40,15 @@ what needs to get built into them.
 - Backend has **no `/api` context path** — endpoints are `/chat/start`,
   `/chat/message`, `/cars`, `/cars/{id}` directly off the base URL.
 - **This repo's [.env](.env) has been fixed** to drop the stale `/api` suffix
-  (was `http://localhost:8080/api`, now `http://localhost:8080`) — it no
-  longer matches the backend's real routing otherwise.
-- Locally, the exact port can vary by how the backend is being run: `8080`
-  is the `application.yml` default when `PORT` isn't set, but this machine's
-  VS Code launch config (`carDekho-AI-Backend/.vscode/launch.json`) currently
-  runs it under the `local` profile with `PORT=8081`. **Confirm the running
-  port before debugging a string of failed requests** — don't assume `.env`
-  is stale just because calls fail; check what's actually listening first.
+  (was `http://localhost:8080/api`) — it no longer matches the backend's
+  real routing otherwise.
+- **Local port is `8081`** (confirmed the working choice on this machine —
+  port `8080`, the `application.yml` default, is permanently occupied by an
+  unrelated Windows service, `AgentService.exe`). `.env`'s
+  `VITE_API_BASE_URL` is set to `http://localhost:8081` and the backend is
+  run with `PORT=8081` (matches `carDekho-AI-Backend/.vscode/launch.json`'s
+  `local` profile config). If requests start failing, check the backend
+  process is actually alive on that port before assuming `.env` is stale.
 - CORS is enforced server-side (`CorsConfig`, `@CrossOrigin`-equivalent via
   `WebMvcConfigurer`) and only allows the origin in the backend's
   `FRONTEND_ORIGIN` env var (default `http://localhost:5173`, Vite's
@@ -70,6 +72,9 @@ purely as client-side UI while a request is in flight).
 ```
 POST /chat/start (no body)
   → { conversationId, assistantMessage }
+    assistantMessage now lists ALL 7 required fields up front in one
+    message, not one question per turn — a thorough first reply can
+    complete the gathering phase in a single /chat/message call.
 
 POST /chat/message { conversationId, message }
   → PreferenceAgent re-extracts ALL preferences from the whole transcript
@@ -78,17 +83,34 @@ POST /chat/message { conversationId, message }
     fuelType, bodyType, transmission, drivingPattern, familySize, priority)
     is still missing → { assistantMessage, completed: false }
     (recommendations/comparison keys absent — non-null Jackson serialization)
-  → completed: true once all 7 are captured:
-      - zero matches → { assistantMessage, recommendations: [], comparison: [], completed: true }
-        (not an error — HTTP 200, render like any other assistant turn)
-      - matches found → { assistantMessage (markdown), recommendations, comparison, completed: true }
-        recommendations and comparison are the SAME array today — there is
-        no distinct comparison-selection concept in the backend yet.
+    assistantMessage here is now DETERMINISTIC plain text listing exactly
+    the still-missing fields ("I still need: transmission, driving
+    pattern...") — not an LLM-phrased question, and correspondingly cheaper
+    (1 LLM call per turn instead of 2, since only PreferenceAgent runs).
+  → completed: true once all 7 are captured — three possible shapes, all
+    structurally identical (completed: true, recommendations, comparison,
+    markdown assistantMessage), distinguished only by the message content:
+      - exact matches found → normal recommendation markdown
+      - no exact match, but a closest-match fallback found candidates →
+        recommendations/comparison ARE populated (ranked by proximity),
+        assistantMessage explains up front these are near-matches and
+        which criterion each one misses — render identically to an exact
+        match, there's no separate field for this
+      - even the closest-match fallback found nothing → deterministic
+        "couldn't find any cars" message, recommendations: [],
+        comparison: [] — still HTTP 200, not an error
+    recommendations and comparison are the SAME array today — there is
+    no distinct comparison-selection concept in the backend yet.
 ```
 
 Practical implications for `useChat`:
 - Route Chat → Recommendation screen on `completed === true`, not on
-  `recommendations.length > 0` (empty-but-completed is valid).
+  `recommendations.length > 0` (empty-but-completed is valid, and now so is
+  populated-but-not-exact-match — both render the same way, off the same
+  fields).
+- Don't assume a fixed number of turns before `completed` — a thorough
+  first reply can jump straight to it; a piecemeal one takes several turns.
+  Just keep looping on `completed: false` either way.
 - Once `completed`, don't allow further messages on that `conversationId` —
   offer "start a new search" (fresh `POST /chat/start`).
 - A `conversationId` becomes invalid if the backend restarts (in-memory
@@ -145,13 +167,18 @@ Summary for `src/services/api.ts` design:
   retry button that resends the same call.
 - `500 Invalid SQL` / `500 Internal Server Error` → not fixable by retrying
   the same request; show a generic failure message.
-- **Known current-environment caveat**: the backend's Anthropic account has
-  had billing/credit issues historically, which would make every
-  `/chat/message` call fail with `503 LLM Failure` regardless of payload. If
-  every single chat call fails identically during integration testing,
-  confirm with whoever runs the backend whether this is still the case
-  before assuming a frontend bug. `/cars` and `/cars/{id}` don't call the
-  LLM and are unaffected.
+- **Known current-environment caveat**: the backend runs on Google Gemini's
+  **free tier** (`gemini-2.5-flash`), rate-limited to **20 requests/minute**
+  on this account — not Anthropic Claude as earlier notes here assumed
+  (confirmed by inspecting `pom.xml` directly; the backend's own docs were
+  stale on this point too). A burst of `/chat/message` calls can trip this
+  and surface as `503 LLM Failure`; it's transient and typically clears
+  within ~30-60 seconds, so a retry button (or short auto-retry delay) is
+  reasonable UX specifically for this case. If **every** `/chat/message`
+  call fails identically regardless of payload and pacing, that's more
+  likely a real config issue (e.g. missing API key) than the rate limit —
+  check backend logs before assuming a frontend bug. `/cars`/`/cars/{id}`
+  don't call the LLM and are unaffected either way.
 
 ---
 

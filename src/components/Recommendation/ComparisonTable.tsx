@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { CarResponse } from '../../types/car'
 import { formatPrice } from '../../utils/formatPrice'
+import { formatEnumLabel } from '../../utils/formatEnumLabel'
 
 interface ComparisonTableProps {
   cars: CarResponse[]
@@ -10,8 +11,8 @@ const ROWS: { label: string; render: (car: CarResponse) => ReactNode }[] = [
   { label: 'Price', render: (car) => formatPrice(car.price) },
   { label: 'Mileage', render: (car) => `${car.mileage} km/l` },
   { label: 'Safety', render: (car) => `${car.safetyRating}/5` },
-  { label: 'Fuel', render: (car) => car.fuelType },
-  { label: 'Transmission', render: (car) => car.transmission },
+  { label: 'Fuel', render: (car) => formatEnumLabel(car.fuelType) },
+  { label: 'Transmission', render: (car) => formatEnumLabel(car.transmission) },
   { label: 'Seats', render: (car) => car.seatCapacity },
   { label: 'Boot Space', render: (car) => `${car.bootSpace} L` },
   { label: 'Ground Clearance', render: (car) => `${car.groundClearance} mm` },
