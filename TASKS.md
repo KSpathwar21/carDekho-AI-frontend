@@ -66,44 +66,113 @@ it now would add nothing.
 **M3 status: done.**
 
 ## M4 — Home Page
-- [ ] `src/pages/Home` — hero heading, subheading, "Start Conversation" CTA
-      routing to `/chat`
-- [ ] No API call on this page (start happens in M6)
+- [x] `src/pages/Home` — hero heading ("Find Your Perfect Car"), subheading,
+      "Start Conversation" CTA routing to `/chat`, illustration (reused the
+      existing `src/assets/hero.png`, already in the repo)
+      side-by-side desktop layout, stacked/image-first on mobile
+- [x] No API call on this page (start happens in M6) — confirmed, page is
+      static
+- [x] Verified in a real browser: desktop + mobile viewport screenshots, and
+      a scripted click on "Start Conversation" confirmed it actually
+      navigates to `/chat` with zero console errors (not just that the link
+      `href` looks right)
+
+**M4 status: done.**
 
 ## M5 — Chat Screen (UI only, no live data yet)
-- [ ] `src/components/Chat/ChatWindow`, `MessageBubble`, `TypingIndicator`,
+- [x] `src/components/Chat/ChatWindow`, `MessageBubble`, `TypingIndicator`,
       `ChatInput`, `QuickReplyChips`, `ThinkingAnimation`
-- [ ] `src/components/Common/ProgressIndicator`
-- [ ] Static/mock message list to validate layout before wiring the API
-- [ ] Update `QuickReplyChips` option sets now, per `IMPLEMENTATION.md` §4:
-      fuel = Petrol/Diesel/CNG/Electric/Hybrid/Not Sure (not `EV`), body type
-      adds Coupe. Chip click sends **natural language**, not the raw enum
-      value (e.g. clicking "Electric" sends the message "I want an electric
-      car" — the backend's `PreferenceAgent` parses free text)
+- [x] `src/components/Common/ProgressIndicator`
+- [x] `src/types/chat.ts` (`ChatMessage`/`ChatRole`) — minimal local shape,
+      just enough for these components; M6 reuses it rather than redefining
+- [x] `src/constants/quickReplies.ts` — `FUEL_TYPE_OPTIONS`,
+      `TRANSMISSION_OPTIONS`, `BODY_TYPE_OPTIONS`, corrected against the
+      backend's real enums (fuel: Petrol/Diesel/CNG/Electric/Hybrid/Not Sure
+      — not `EV`; body type includes Coupe). Chip `onSelect` sends the
+      option's natural-language `message`, not the raw enum label.
+- [x] Static/mock message list in `src/pages/Chat.tsx` (scripted 5-turn
+      conversation with a fake 1.2s "thinking" delay) to validate the full
+      layout/interaction before M6 replaces it with the real `useChat` hook
+      — components themselves are pure/presentational (props only), so M6
+      only touches the page's data-wiring, not `components/Chat/*`
+- [x] `AppLayout` changed from `min-h-screen` (whole-page scroll) to
+      `h-screen` + `overflow-y-auto` on `<main>` — needed so the chat input
+      stays pinned at the bottom of the viewport and only the message list
+      scrolls, chat-app style; navbar/footer now always stay visible.
+      Verified this didn't regress Home/NotFound (content is short enough
+      that it's visually identical either way).
+- [x] Verified in a real browser via a scripted interaction (typed message →
+      send → thinking animation → next assistant question with chips →
+      clicked a chip → conversation advanced): all four screenshots show
+      correct rendering, progress bar animates, zero console errors
+
+**M5 status: done.**
 
 ## M6 — API Integration
-- [ ] `src/types/`: `ChatMessage`, `Conversation`, `ChatRequest`,
-      `ChatResponse`, `ConversationResponse`, `Car`/`CarResponse`, `Page<T>`,
-      `ErrorResponse` — transcribe field-for-field from
-      `FRONTEND_INTEGRATION.md` §3, don't re-derive
-- [ ] `src/services/api.ts`: `startConversation()`, `sendMessage()`,
-      `getCars()`, `getCar()` (axios, base URL from `VITE_API_BASE_URL`,
-      throw parsed `ErrorResponse` body on non-2xx — see
-      `FRONTEND_INTEGRATION.md` §6 for the client shape)
-- [ ] `src/hooks/useConversation` / `useChat`: own `conversationId` +
-      message history in context/state (not the URL); gate the
-      Chat→Recommendation transition on `completed === true`, **not**
-      `recommendations.length > 0` (empty array + `completed: true` is a
-      valid "no matches" response, not an error)
-- [ ] `src/context/` — conversation/chat context provider if state needs to
-      cross Chat → Recommendation route boundary
-- [ ] `src/components/Common/ErrorBanner`: branch on `ErrorResponse.error`
-      label (`Not Found` / `Validation Failed` / `LLM Failure` /
-      `Database Failure` / `Invalid SQL` / `Internal Server Error`) per the
-      table in `IMPLEMENTATION.md` §5 — retry button only for the two `503`s
-- [ ] Verify a real `/chat/start` → `/chat/message` round trip against the
-      local backend before moving on (watch for the known "every LLM call
-      fails 503" caveat if the backend's Anthropic billing is still unresolved)
+- [x] `src/types/`: `car.ts` (`CarResponse` + `BodyType`/`FuelType`/
+      `Transmission` unions), `page.ts` (`Page<T>`), `error.ts`
+      (`ErrorResponse`), `chat.ts` extended with `ConversationResponse`/
+      `ChatRequest`/`ChatResponse` — transcribed field-for-field from
+      `FRONTEND_INTEGRATION.md` §3 and confirmed against live responses (see
+      verification below)
+- [x] `src/services/api.ts`: `startConversation()`, `sendMessage()`,
+      `getCars()`, `getCar()` — axios instance with `baseURL` from
+      `VITE_API_BASE_URL`, catches and rethrows the parsed `ErrorResponse`
+      body on non-2xx (synthesizes a `Network Error`/status-0 shape for
+      connection failures, since those never reach the backend at all)
+- [x] `src/context/conversation-context.ts` + `ConversationContext.tsx`
+      (`ConversationProvider`) + `src/hooks/useConversation.ts` — single
+      hook/context (not separate `useChat`), since a second hook would
+      either fork state (breaking the Chat→Recommendation share) or just
+      re-export this one. Owns `conversationId`, `messages`, `completed`,
+      `recommendations`, `comparison`, `loading`, `error`, and
+      `start`/`send`/`retry`/`reset`. Provider wraps the router in `App.tsx`
+      so state survives the Chat→Recommendation navigation.
+- [x] `src/components/Common/ErrorBanner` — shows `error.message`, retry
+      button only when the caller passes `onRetry`. Policy for *when* retry
+      makes sense (`canRetry`) lives in the context, not hardcoded in the
+      component: no conversation yet, or a `Not Found` (dead conversation)
+      → retry starts a new one; `LLM Failure`/`Database Failure`/network
+      error with a pending message → retry resends the same text;
+      `Validation Failed`/`Invalid SQL`/`Internal Server Error` → no retry
+      offered, matches `FRONTEND_INTEGRATION.md` §5's table.
+- [x] `src/utils/detectQuickReplyOptions.ts` — best-effort keyword match on
+      the real assistant question text (backend doesn't tag which
+      preference field it's asking about) to decide which M5 chip set to
+      show; falls back to free-text input if no match, never blocks typing
+- [x] `Chat.tsx` rewired off the M5 mock state onto `useConversation`;
+      navigates to `/recommendation` via `useNavigate` when `completed`
+      becomes `true` (not on `recommendations.length`)
+- [x] **Verified against the real local backend, not mocks**: ran the
+      actual `carDekho-AI-Backend` (`local` profile, port 8081 — port 8080
+      is permanently occupied by a Windows service, `AgentService.exe`, on
+      this machine; `.env` updated accordingly) and drove it with a real
+      headless browser:
+      - Confirmed CORS actually works end-to-end (caught and fixed a real
+        mismatch first: the backend's `FRONTEND_ORIGIN` only allows
+        `:5173`, so testing against a scratch `:5183` dev server failed
+        CORS — not a code bug, a test-setup one)
+      - Ran a full live conversation through real Anthropic Claude calls
+        (`/chat/start` → five real `/chat/message` turns) to
+        `completed: true`, confirmed navigation to `/recommendation` fired
+        correctly, zero console errors
+      - Forced and verified the real error/retry paths: killed the backend
+        mid-conversation → real network error + Retry shown → restarted the
+        backend (fresh in-memory store) → clicked Retry → got a genuine
+        `404 Conversation not found` from the live backend + Retry shown →
+        clicked Retry again → correctly detected `Not Found` and started a
+        brand-new conversation rather than resending
+      - One real backend crash hit along the way (transient DNS failure
+        resolving the Railway MySQL host, unrelated to this repo) — noted
+        for awareness, not something fixed here
+
+**M6 status: done.** `useChat`/`useRecommendations`/`useTyping` from
+`CLAUDE_FRONTEND.md`'s planned hook list were **not** created as separate
+files — `useConversation` already covers Chat's needs, and a `useTyping`
+hook has nothing to own now that `ThinkingAnimation`/`TypingIndicator` are
+self-contained. Revisit `useRecommendations` in M7 if the Recommendation
+page's needs turn out to be more than reading straight from
+`useConversation`.
 
 ## M7 — Recommendation Cards
 - [ ] `src/components/Recommendation/RecommendationCard`,
