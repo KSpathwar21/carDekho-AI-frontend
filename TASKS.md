@@ -217,14 +217,14 @@ page's needs turn out to be more than reading straight from
         avoid burning more LLM quota (see note below)
       - Attempted a full live chat→recommendation run reusing M6's proven
         approach, but **hit a real backend problem along the way**: the
-        backend's `pom.xml` actually depends on
-        `spring-ai-starter-model-google-genai` (Gemini), not
+        backend is configured for
+        Groq, not
         `spring-ai-starter-model-anthropic` as the backend's own
         `IMPLEMENTATION.md`/`CLAUDE_BACKEND.md` claim — the migration
         described in those docs doesn't match what's actually deployed on
-        this machine. Gemini's free tier caps at 20 requests/day, and it was
+        this machine. Groq's free tier quota was limited, and it was
         exhausted by M6 + M7's testing today (confirmed via backend logs:
-        `429 ... generate_content_free_tier_requests, limit: 20`). This is a
+        a provider-side `429`). This is a
         backend-repo issue, not fixable from here — flagging it since it
         explains the intermittent 503s seen since M6 and blocks further live
         verification until the backend's provider/quota situation is
@@ -364,7 +364,7 @@ page's needs turn out to be more than reading straight from
 - [x] Full manual pass, verified for real against the live backend (quota
       had recovered by this point): Home → clicked "Start Conversation" →
       Chat → sent one comprehensive message (packing all 7 preferences into
-      a single turn to conserve the still-limited Gemini quota) → real LLM
+      a single turn to conserve the still-limited Groq quota) → real LLM
       response → auto-navigated to Recommendation on `completed: true` →
       real markdown summary + featured/grid cards rendered → clicked
       "Compare" → scrolled to the real comparison table → clicked "View

@@ -167,9 +167,8 @@ Summary for `src/services/api.ts` design:
   retry button that resends the same call.
 - `500 Invalid SQL` / `500 Internal Server Error` → not fixable by retrying
   the same request; show a generic failure message.
-- **Known current-environment caveat**: the backend runs on Google Gemini's
-  **free tier** (`gemini-2.5-flash`), rate-limited to **20 requests/minute**
-  on this account — not Anthropic Claude as earlier notes here assumed
+- **Known current-environment caveat**: the backend runs on Groq's
+  **free tier**, rate-limited on this account — not Anthropic Claude as earlier notes here assumed
   (confirmed by inspecting `pom.xml` directly; the backend's own docs were
   stale on this point too). A burst of `/chat/message` calls can trip this
   and surface as `503 LLM Failure`; it's transient and typically clears

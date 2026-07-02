@@ -45,8 +45,8 @@ natural conversation, not a form with dropdowns.
   long. The backend repeatedly crashed mid-session (port conflicts, a
   transient DNS failure resolving the Railway-hosted MySQL host, and
   general instability under sustained parallel use with the frontend dev
-  server), and the Gemini free tier backing the chat flow is also
-  rate-limited (20 requests/minute), which further capped how much live,
+  server), and the Groq free tier backing the chat flow is also
+  rate-limited, which further capped how much live,
   real end-to-end chat testing was practical in any one sitting. That
   constraint is exactly why the build didn't start with UI code — it
   started with `IMPLEMENTATION.md`, a document capturing the *actual*
@@ -97,14 +97,14 @@ Node version mismatch that broke the first production deploy attempt.
 plus a backend whose own documentation had drifted from its real behavior
 into something concretely verified against the actual running code — and
 doing that verification honestly, including flagging when something
-*couldn't* be tested live (e.g. Gemini quota exhaustion) instead of
+*couldn't* be tested live (e.g. Groq quota exhaustion) instead of
 silently skipping the check.
 
 **Where it got in the way**: the two-server instability above meant a real
 chunk of session time went into restarting crashed backend processes and
 re-establishing state rather than pure feature work. And because
 verification leaned on real live LLM calls rather than mocks, the shared
-Gemini free-tier quota became an actual constraint on how much could be
+Groq free-tier quota became an actual constraint on how much could be
 proven end-to-end in one sitting — requiring workarounds like temporary,
 non-shipping preview routes to verify UI against real data without
 spending scarce LLM calls on repeat chat runs.
