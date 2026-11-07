@@ -204,3 +204,11 @@ as expected.
 backend. This setup targets Railway for the frontend instead, per explicit
 direction — if that's not the final intent, `PROJECT_SCOPE.md` should be
 updated to match, or the deployment target reconsidered.
+
+
+
+## Related Repository
+
+**Backend:** [carDekho-AI-Backend](https://github.com/KSpathwar21/carDekho-AI-Backend)
+
+The Spring Boot backend handles conversation orchestration, AI-powered preference extraction, SQL generation and validation, database queries and personalized car recommendations.
