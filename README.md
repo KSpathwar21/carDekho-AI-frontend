@@ -6,7 +6,6 @@ brief, [ARCHITECTURE.md](ARCHITECTURE.md) for the overall system design,
 [IMPLEMENTATION.md](IMPLEMENTATION.md) for how the backend contract actually
 works, and [TASKS.md](TASKS.md) for the milestone-by-milestone build log.
 
----
 
 ## Reflection
 
@@ -132,14 +131,64 @@ spending scarce LLM calls on repeat chat runs.
 
 ## Local development
 
+### Prerequisites
+
+- Node.js 20.19 or later
+- npm
+- Git
+- Docker Desktop (for running the backend and MySQL locally)
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/KSpathwar21/carDekho-AI-frontend.git
+cd carDekho-AI-frontend
+```
+
+### 2. Install dependencies
+
 ```bash
 npm install
+```
+
+### 3. Configure the backend URL
+
+Create your local environment file:
+
+```bash
+copy .env.example .env
+```
+
+On Windows Command Prompt, this copies the example configuration.
+
+The default configuration should be:
+
+```env
+VITE_API_BASE_URL=http://localhost:8081
+```
+
+Vite exposes `VITE_*` variables to browser code, so never put API keys, passwords, or other secrets in frontend environment files.
+
+### 4. Start the backend
+
+Follow the local setup instructions in the [backend repository](https://github.com/KSpathwar21/carDekho-AI-Backend).
+
+The backend should be available at `http://localhost:8081`.
+
+### 5. Start the frontend
+
+```bash
 npm run dev
 ```
 
-Requires the backend (`carDekho-AI-Backend`) running locally and
-`VITE_API_BASE_URL` in `.env` pointed at it — see `IMPLEMENTATION.md`
-section 2 for the current local port.
+Open `http://localhost:5173` in your browser.
+
+### 6. Build and lint
+
+```bash
+npm run build
+npm run lint
+```
 
 ## Production build
 
@@ -154,56 +203,29 @@ required for React Router's `BrowserRouter` routes (`/chat`,
 `/recommendation`, `/car/:id`) to resolve correctly on direct navigation or
 page refresh, not just client-side link clicks.
 
-## Deploying to Railway
+## Optional production deployment
 
-This repo includes [railway.json](railway.json), so Railway's Nixpacks
-builder auto-detects the build (`npm run build`) and start
-(`npm run start`) commands — no Dockerfile needed.
+The frontend can be deployed to a static hosting provider or a Node.js-compatible hosting platform.
 
-1. **Create the Railway project** (one-time, via your Railway account):
-   - `railway login` (opens a browser to authenticate), then
-     `railway init` in this directory, **or** connect this GitHub repo
-     directly from the Railway dashboard ("New Project" → "Deploy from
-     GitHub repo").
-2. **Environment variable already handled**: [.env.production](.env.production)
-   is committed with `VITE_API_BASE_URL=https://cardekho-ai-backend-production.up.railway.app`
-   (the deployed backend's real URL, confirmed live). Vite automatically
-   loads `.env.production` for `vite build` (which runs in production mode
-   by default) — no manual Railway dashboard variable needed for this to
-   work, though setting `VITE_API_BASE_URL` there too is harmless (a
-   dashboard value would just take precedence with the same result). Vite
-   bakes `VITE_*` vars in at **build time**, not runtime — if the backend
-   URL ever changes, update `.env.production` and redeploy, a dashboard
-   variable set after the fact won't retroactively apply either.
-3. **Deploy**: `railway up` (CLI) or push to the connected branch
-   (GitHub integration auto-deploys on push).
-4. Railway injects `PORT` automatically at runtime — `npm run start`
-   already reads it (`serve -s dist -l $PORT`), no manual configuration
-   needed there.
-5. **Backend CORS**: the backend's `FRONTEND_ORIGIN` env var must include
-   this Railway deployment's public URL, or every API call will fail CORS
-   preflight in the browser (see `IMPLEMENTATION.md` section 2). This is a
-   backend-side config change — coordinate with whoever deploys
-   `carDekho-AI-Backend`.
+Before building, configure the following environment variable in the hosting provider's build environment:
 
-**Node version**: `package.json` pins `engines.node` to `>=20.19.0` —
-Nixpacks reads this to pick the build's Node version. Without it, Nixpacks
-defaulted to Node 18, which fails outright (`ReferenceError: CustomEvent is
-not defined`) since Vite 8 requires Node 20.19+/22.12+. If a build fails
-with that exact error, this field either got removed or Nixpacks ignored it
-for some reason — check the build log's Node version line first.
+```env
+VITE_API_BASE_URL=https://your-backend-domain
+```
 
-Verified locally before writing this: `npm run build && npm run start`,
-then confirmed `/`, `/chat`, `/recommendation`, and `/car/:id` all return
-`200` with the app shell (not a bare-server 404) — the SPA fallback works
-as expected.
+Vite embeds `VITE_*` variables into the frontend bundle at build time. If the backend URL changes, update the variable and rebuild the application.
 
-### Note on the original deployment plan
+For a production build:
 
-`PROJECT_SCOPE.md` documents Vercel for the frontend and Railway for the
-backend. This setup targets Railway for the frontend instead, per explicit
-direction — if that's not the final intent, `PROJECT_SCOPE.md` should be
-updated to match, or the deployment target reconsidered.
+```bash
+npm run build
+```
+
+The generated static files are available in `dist/`.
+
+If deploying behind a web server, configure SPA fallback so React Router routes such as `/chat`, `/recommendation`, and `/car/:id` resolve to `index.html`.
+
+The backend's `FRONTEND_ORIGIN` environment variable must include the deployed frontend URL to allow browser requests through CORS.
 
 
 
